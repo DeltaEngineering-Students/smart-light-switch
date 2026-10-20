@@ -1,0 +1,52 @@
+name: OTA deploy to ESP32
+
+# Запускається на self-hosted runner, що стоїть у тій самій Wi-Fi мережі, що й ESP32.
+# Хмарні раннери GitHub не бачать локальну мережу, тому тут інакше не вийде.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "platformio.ini"
+      - ".github/workflows/ota.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ota-esp32
+  cancel-in-progress: false
+
+jobs:
+  ota:
+    # лише пуші власника: self-hosted runner виконує код на ПК
+    if: github.actor == 'ganfay'
+    runs-on: [self-hosted, linux, smartswitch]
+    timeout-minutes: 15
+    env:
+      PIO: /home/maks/.platformio/penv/bin/pio
+      SECRETS_FILE: /home/maks/.config/smartswitch/secrets.h
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Підкласти secrets.h з ПК (у репозиторії його немає)
+        run: cp "$SECRETS_FILE" src/secrets.h
+
+      - name: Збірка
+        run: $PIO run -e esp32dev
+
+      - name: Прошивка по Wi-Fi (espota -> switch.local)
+        run: |
+          export OTA_PASS="$(grep -oP 'OTA_PASS\s+"\K[^"]+' src/secrets.h)"
+          for i in 1 2 3; do
+            $PIO run -e esp32dev_ota -t upload && exit 0
+            echo "Спроба $i не вдалась, чекаю 8 с..."; sleep 8
+          done
+          exit 1
+
+      - name: Перевірка, що ESP32 піднялась
+        run: |
+          sleep 12
+          for i in $(seq 1 10); do
+            if curl -fsS -m 4 http://switch.local/api/sys; then echo; echo "ESP32 online"; exit 0; fi
+            sleep 3
+          done
+          echo "ESP32 не відповідає після прошивки"; exit 1
