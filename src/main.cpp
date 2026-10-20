@@ -560,32 +560,55 @@ void setup() {
     server.on("/api/reboot", handleReboot);
     server.on("/icon.png", handleIcon);
     server.on("/manifest.json", handleManifest);
-    // Бездротова Web OTA прошивка через HTTP POST (без залежності від відкритих вхідних портів роутера)
+    // Бездротова Web OTA прошивка через HTTP POST або через браузер (без залежності від порту espota)
+    server.on("/update", HTTP_GET, []() {
+        server.send(200, "text/html",
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<title>OTA Update</title><style>body{font-family:sans-serif;background:#090b10;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}"
+            ".card{background:#161b26;padding:24px;border-radius:16px;border:1px solid #283040;max-width:360px;width:100%;text-align:center}"
+            "input[type=file]{margin:16px 0;color:#9ca3af}input[type=submit]{background:#3b82f6;color:#fff;border:none;padding:12px 24px;border-radius:10px;font-weight:700;cursor:pointer;width:100%}"
+            "</style></head><body><div class='card'><h2>⚡ Бездротове OTA</h2>"
+            "<form method='POST' action='/update' enctype='multipart/form-data'>"
+            "<input type='file' name='firmware' accept='.bin' required><br>"
+            "<input type='submit' value='Оновити прошивку по Wi-Fi'>"
+            "</form></div></body></html>");
+    });
+
     server.on("/update", HTTP_POST, []() {
         server.sendHeader("Connection", "close");
-        server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-        delay(300);
-        ESP.restart();
+        if (Update.hasError()) {
+            server.send(500, "text/plain", "FAIL: " + String(Update.errorString()));
+        } else {
+            server.send(200, "text/plain", "OK: Перезавантаження...");
+            delay(300);
+            ESP.restart();
+        }
     }, []() {
         HTTPUpload& upload = server.upload();
         if (upload.status == UPLOAD_FILE_START) {
             servoStopPwm();
             digitalWrite(LED_PIN, HIGH);
-            Serial.printf("Update Start: %s\n", upload.filename.c_str());
-            if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+            Serial.printf("HTTP OTA Start: %s\n", upload.filename.c_str());
+            uint32_t maxSketchSpace = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+            if (!Update.begin(maxSketchSpace, U_FLASH)) {
                 Update.printError(Serial);
             }
         } else if (upload.status == UPLOAD_FILE_WRITE) {
             if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
                 Update.printError(Serial);
             }
+            yield();
         } else if (upload.status == UPLOAD_FILE_END) {
             if (Update.end(true)) {
-                Serial.printf("OTA Success: %u bytes\n", upload.totalSize);
+                Serial.printf("HTTP OTA Success: %u bytes\n", upload.totalSize);
             } else {
                 Update.printError(Serial);
             }
             digitalWrite(LED_PIN, LOW);
+        } else if (upload.status == UPLOAD_FILE_ABORTED) {
+            Update.end();
+            digitalWrite(LED_PIN, LOW);
+            Serial.println("HTTP OTA Aborted");
         }
     });
     server.begin();
