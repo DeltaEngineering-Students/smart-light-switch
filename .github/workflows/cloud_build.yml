@@ -25,7 +25,7 @@ jobs:
 
       - name: Inject secrets.h
         run: |
-          echo "${{ secrets.SECRETS_H }}" > src/secrets.h
+          echo "${{ secrets.SECRETS_B64 }}" | base64 -d > src/secrets.h
 
       - name: Build firmware
         run: pio run -e esp32dev
