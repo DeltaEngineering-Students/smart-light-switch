@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Git post-commit hook for SmartSwitch
+# Автоматично прошиває ESP32 по Wi-Fi (або по USB, якщо підключено) при кожному коміті
+
+set -e
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_DIR"
+
+echo "⚡ [SmartSwitch] Автоматична збірка та заливка прошивки..."
+
+# Перевірка наявності secrets.h
+if [ ! -f src/secrets.h ]; then
+    if [ -f /home/maks/.config/smartswitch/secrets.h ]; then
+        cp /home/maks/.config/smartswitch/secrets.h src/secrets.h
+    else
+        echo "⚠️ src/secrets.h не знайдено, пропуск заливки."
+        exit 0
+    fi
+fi
+
+PIO="/home/maks/.platformio/penv/bin/pio"
+
+# Якщо підключено кабель USB (/dev/ttyUSB0), прошиваємо через нього за 20 секунд
+if [ -e /dev/ttyUSB0 ]; then
+    echo "🔌 Знайдено кабель USB (/dev/ttyUSB0). Заливка через шнур..."
+    $PIO run -e esp32dev -t upload --upload-port /dev/ttyUSB0
+    echo "✅ Успішно прошито через USB!"
+    exit 0
+fi
+
+# Якщо USB немає, прошиваємо по Wi-Fi через OTA
+echo "📶 Спроба бездротової прошивки по Wi-Fi..."
+export OTA_PASS="$(grep -oP 'OTA_PASS\s+"\K[^"]+' src/secrets.h 2>/dev/null || echo '')"
+
+if curl -s -m 2 http://switch.local/api/sys >/dev/null 2>&1; then
+    echo "🟢 ESP32 доступний по Wi-Fi (switch.local). Починаємо OTA..."
+    $PIO run -e esp32dev_ota -t upload
+    echo "✅ Бездротова прошивка по Wi-Fi успішна!"
+else
+    echo "⚠️ switch.local не відповідає в поточній мережі. Спробуй наблизитись або перевірити Wi-Fi."
+fi

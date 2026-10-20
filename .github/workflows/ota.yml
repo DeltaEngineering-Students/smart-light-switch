@@ -33,8 +33,13 @@ jobs:
       - name: Збірка
         run: $PIO run -e esp32dev
 
-      - name: Прошивка по Wi-Fi (espota -> switch.local)
+      - name: Прошивка (USB або Wi-Fi OTA)
         run: |
+          if [ -e /dev/ttyUSB0 ]; then
+            echo "Підключено кабель USB (/dev/ttyUSB0), прошиваємо напряму..."
+            $PIO run -e esp32dev -t upload --upload-port /dev/ttyUSB0 && exit 0
+          fi
+          echo "Прошивка по Wi-Fi через OTA..."
           export OTA_PASS="$(grep -oP 'OTA_PASS\s+"\K[^"]+' src/secrets.h)"
           for i in 1 2 3; do
             $PIO run -e esp32dev_ota -t upload && exit 0
