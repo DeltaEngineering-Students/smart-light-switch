@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Light Switch v5 — «Direct-Chassis Mount» (Без клею, 57×50 мм)</title>
+<style>
+  :root {
+    --bg: #090d16;
+    --card: #121824;
+    --card-hover: #172030;
+    --border: #222d42;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.25);
+    --gold: #fbbf24;
+    --green: #22c55e;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    padding: 24px;
+    max-width: 1300px;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: var(--green);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  h1 { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+  p.subtitle { color: var(--muted); font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .card h2 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--accent);
+  }
+  .card p.desc {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  svg {
+    width: 100%;
+    height: auto;
+    background: #060910;
+    border-radius: 12px;
+    border: 1px solid #1b2538;
+    display: block;
+  }
+  
+  /* SVG styling */
+  .base-plate { fill: #1e293b; stroke: #475569; stroke-width: 1.5; }
+  .key-cutout { fill: #060910; stroke: #38bdf8; stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .key-rocker { fill: #334155; stroke: #94a3b8; stroke-width: 1.2; }
+  .subbox-slot { fill: #0284c7; stroke: #38bdf8; stroke-width: 1.5; }
+  .screw-hole { fill: #fbbf24; stroke: #f59e0b; stroke-width: 1.5; }
+  .servo-body { fill: #1e3a5f; stroke: #60a5fa; stroke-width: 1.5; }
+  .servo-ear { fill: #2563eb; stroke: #93c5fd; stroke-width: 1.2; }
+  .clamp-bar { fill: #b45309; stroke: #fbbf24; stroke-width: 1.5; }
+  .t-arm { fill: #047857; stroke: #34d399; stroke-width: 1.5; }
+  .esp-box { fill: #14532d; stroke: #22c55e; stroke-width: 1.5; }
+  .axis-line { stroke: #ef4444; stroke-width: 1.2; stroke-dasharray: 6 4; }
+  .dim-line { stroke: var(--gold); stroke-width: 1.2; }
+  .dim-ext { stroke: var(--gold); stroke-width: 0.8; opacity: 0.6; }
+  .dim-text { fill: var(--gold); font-size: 11px; font-weight: 700; font-family: monospace; }
+  .label-title { fill: #ffffff; font-size: 13px; font-weight: 800; }
+  .label-sub { fill: var(--muted); font-size: 10.5px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+  .legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  th {
+    color: var(--muted);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  td.num {
+    font-family: monospace;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  td.tag {
+    font-weight: 600;
+    color: var(--accent);
+  }
+  code {
+    background: #1b2538;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="badge">Production Engineering v5</span>
+  <h1>Smart Light Switch v5 — «Direct-Chassis Mount»</h1>
+  <p class="subtitle">Креслення та габарити для 3D-моделювання в Onshape / Fusion 360. Заміна декоративної рамки, пряме кріплення в підрозетник (крок 60 мм), клавіша 57 × 50 мм, жорсткий затиск серви на болти M3.</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-color" style="background:#1e293b; border-color:#475569"></div> Базова плита (3.2 мм)</div>
+  <div class="legend-item"><div class="legend-color" style="background:#38bdf8"></div> Пази підрозетника 60 мм</div>
+  <div class="legend-item"><div class="legend-color" style="background:#334155; border-color:#94a3b8"></div> Клавіша вимикача (57×50 мм)</div>
+  <div class="legend-item"><div class="legend-color" style="background:#1e3a5f; border-color:#60a5fa"></div> Серва MG996R (на боці)</div>
+  <div class="legend-item"><div class="legend-color" style="background:#b45309; border-color:#fbbf24"></div> Притискний місток M3</div>
+  <div class="legend-item"><div class="legend-color" style="background:#047857; border-color:#34d399"></div> T-важіль 25T</div>
+  <div class="legend-item"><div class="legend-color" style="background:#14532d; border-color:#22c55e"></div> Бокс ESP32</div>
+</div>
+
+<div class="grid">
+
+  <!-- КАРТКА 1: ВИГЛЯД СПЕРЕДУ -->
+  <div class="card">
+    <h2>1. Вигляд спереду (Площина стіни XY) — Повний контур шасі</h2>
+    <p class="desc">Початок координат <code>(0, 0)</code> — геометричний центр клавіші вимикача. Вісь вала серви <code>Y = 0.0</code> точно співпадає з лінією гойдання клавіші. Фіксація в стіну: пази Ø4.5 мм під стандартний європейський підрозетник з кроком 60 мм.</p>
+    
+    <svg viewBox="-85 -100 135 150" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#fbbf24"/>
+        </marker>
+      </defs>
+
+      <!-- Координатні осі -->
+      <line x1="-80" y1="0" x2="45" y2="0" class="axis-line" />
+      <line x1="0" y1="-95" x2="0" y2="45" class="axis-line" />
+
+      <!-- Базова плита шасі (X: -76..38, Y: -92..36) -->
+      <rect x="-76" y="-36" width="114" height="72" rx="4" class="base-plate" transform="scale(1, -1)" />
+      <!-- Нижня плита під бокс ESP32 -->
+      <rect x="-68" y="26" width="98" height="66" rx="4" class="base-plate" />
+
+      <!-- Вікно під клавішу 57x50 мм (виріз 59x52 мм) -->
+      <rect x="-29.5" y="-26" width="59" height="52" rx="2" class="key-cutout" />
+      <!-- Сама клавіша 57x50 всередині -->
+      <rect x="-28.5" y="-25" width="57" height="50" rx="1.5" class="key-rocker" />
+      <text x="0" y="-3" class="label-title" text-anchor="middle">КЛАВІША</text>
+      <text x="0" y="8" class="label-sub" text-anchor="middle">57 × 50 мм</text>
+
+      <!-- Пази кріплення підрозетника 60 мм (Вертикальні Y=±30 та горизонтальні X=±30) -->
+      <!-- Верхній паз Y = +30 -->
+      <rect x="-4" y="-33.5" width="8" height="7" rx="3.5" class="subbox-slot" />
+      <circle cx="0" cy="-30" r="1.8" class="screw-hole" />
+      <!-- Нижній паз Y = -30 -->
+      <rect x="-4" y="26.5" width="8" height="7" rx="3.5" class="subbox-slot" />
+      <circle cx="0" cy="30" r="1.8" class="screw-hole" />
+
+      <!-- Ложе серви (X: -72.0..-31.5, Y: -10.5..30.0) -->
+      <rect x="-72" y="-30" width="40.5" height="40.5" rx="3" class="servo-body" />
+      <!-- Вал серви на (X = -32.0, Y = 0.0) -->
+      <circle cx="-32" cy="0" r="4.5" fill="#ef4444" stroke="#fecaca" stroke-width="1.2" />
+      <circle cx="-32" cy="0" r="1.6" fill="#fff" />
+      <text x="-52" y="-5" class="label-title" text-anchor="middle">СЕРВА</text>
+      <text x="-52" y="7" class="label-sub" text-anchor="middle">MG996R</text>
+
+      <!-- Вушка серви та стійки болтів M3 (Y = -15.0 та Y = +34.5) -->
+      <rect x="-56" y="-18" width="9" height="6" rx="2" class="servo-ear" />
+      <circle cx="-51.5" cy="-15" r="1.6" class="screw-hole" />
+      <rect x="-56" y="12" width="9" height="6" rx="2" class="servo-ear" />
+      <circle cx="-51.5" cy="15" r="1.6" class="screw-hole" />
+
+      <!-- Притискна планка-місток M3 (clamp) поверх вушок -->
+      <rect x="-55" y="-22" width="7" height="44" rx="2.5" class="clamp-bar" opacity="0.85" />
+      <circle cx="-51.5" cy="-15" r="1.6" fill="#fff" />
+      <circle cx="-51.5" cy="15" r="1.6" fill="#fff" />
+
+      <!-- Бокс ESP32 (X: -65..25, Y: -90..-30) -->
+      <rect x="-65" y="32" width="90" height="58" rx="4" class="esp-box" />
+      <!-- Напрямні плати ESP32 (крок 28 мм) -->
+      <rect x="-35" y="36" width="3" height="50" rx="1" fill="#22c55e" opacity="0.6" />
+      <rect x="-7" y="36" width="3" height="50" rx="1" fill="#22c55e" opacity="0.6" />
+      <text x="-21" y="62" class="label-title" text-anchor="middle">ESP32 & РЕЛЕ/ДРОТИ</text>
+      <text x="-21" y="74" class="label-sub" text-anchor="middle">внутр. 90 × 58 × 24 мм</text>
+
+      <!-- Розміри (DIMENSIONS) -->
+      <!-- Ширина вікна 59 мм -->
+      <line x1="-29.5" y1="-38" x2="29.5" y2="-38" class="dim-line" marker-start="url(#ar)" marker-end="url(#ar)" />
+      <line x1="-29.5" y1="-26" x2="-29.5" y2="-42" class="dim-ext" />
+      <line x1="29.5" y1="-26" x2="29.5" y2="-42" class="dim-ext" />
+      <text x="0" y="-41" class="dim-text" text-anchor="middle">59.0 (під клавішу 57)</text>
+
+      <!-- Висота вікна 52 мм -->
+      <line x1="33" y1="-26" x2="33" y2="26" class="dim-line" marker-start="url(#ar)" marker-end="url(#ar)" />
+      <line x1="29.5" y1="-26" x2="36" y2="-26" class="dim-ext" />
+      <line x1="29.5" y1="26" x2="36" y2="26" class="dim-ext" />
+      <text x="35" y="2" class="dim-text" text-anchor="start">52.0</text>
+
+      <!-- Крок підрозетника 60 мм -->
+      <line x1="-12" y1="-30" x2="-12" y2="30" class="dim-line" marker-start="url(#ar)" marker-end="url(#ar)" />
+      <line x1="-4" y1="-30" x2="-16" y2="-30" class="dim-ext" />
+      <line x1="-4" y1="30" x2="-16" y2="30" class="dim-ext" />
+      <text x="-14" y="2" class="dim-text" text-anchor="end">крок 60.0 мм</text>
+
+      <!-- Міжосьова відстань болтів M3 серви (30 мм) -->
+      <line x1="-60" y1="-15" x2="-60" y2="15" class="dim-line" marker-start="url(#ar)" marker-end="url(#ar)" />
+      <line x1="-56" y1="-15" x2="-63" y2="-15" class="dim-ext" />
+      <line x1="-56" y1="15" x2="-63" y2="15" class="dim-ext" />
+      <text x="-62" y="2" class="dim-text" text-anchor="end">M3: 30 мм</text>
+
+    </svg>
+  </div>
+
+  <!-- КАРТКА 2: РОЗРІЗ ЗБОКУ -->
+  <div class="card">
+    <h2>2. Розріз збоку по осі валу (Y = 0.0) — Висоти та зазори</h2>
+    <p class="desc">Показує взаємодію площини стіни, механізму клавіші та вала серви. Серва піднята на подіумі 13.5 мм так, що вісь вала стоїть на <code>Z = 24.0 мм</code> (на 6.0 мм вище за найвищу точку клавіші). Це гарантує нульове тертя в нейтралі!</p>
+    
+    <svg viewBox="-5 -5 210 90" xmlns="http://www.w3.org/2000/svg">
+      <!-- Стіна Z = 0 -->
+      <rect x="0" y="70" width="200" height="15" fill="#1e293b" stroke="#334155" />
+      <text x="100" y="81" class="label-sub" text-anchor="middle">СТІНА / СУПОРТ ВИМИКАЧА (Z = 0)</text>
+
+      <!-- Базова плита шасі (Z = 0..3.2) -->
+      <rect x="10" y="66.8" width="180" height="3.2" class="base-plate" />
+
+      <!-- Клавіша вимикача (Z = 0..18.0) -->
+      <polygon points="110,66.8 175,66.8 175,52 110,54" class="key-rocker" />
+      <text x="142" y="61" class="label-title" text-anchor="middle" font-size="9">КЛАВІША (18 мм)</text>
+
+      <!-- Подіум серви (Z = 3.2..13.5) -->
+      <rect x="25" y="56.5" width="55" height="10.3" class="base-plate" />
+      <text x="52" y="63" class="label-sub" text-anchor="middle" font-size="8">ПОДІУМ 13.5</text>
+
+      <!-- Серва MG996R (Z = 13.5..33.7) -->
+      <rect x="30" y="36.3" width="45" height="20.2" rx="2" class="servo-body" />
+      <text x="52" y="49" class="label-title" text-anchor="middle" font-size="10">СЕРВА</text>
+
+      <!-- Вал серви на Z = 24.0 (Y = 0) -->
+      <line x1="20" y1="46" x2="190" y2="46" class="axis-line" />
+      <rect x="75" y="43" width="12" height="6" rx="1.5" fill="#ef4444" />
+      <text x="81" y="41" class="dim-text" text-anchor="middle">Z = 24.0</text>
+
+      <!-- Притискна планка M3 зверху (Z = 33.7..37.7) -->
+      <rect x="35" y="32.3" width="35" height="4.0" rx="1.5" class="clamp-bar" />
+      <text x="52" y="29" class="dim-text" text-anchor="middle">БОЛТИ M3 ПРИТИСКУ</text>
+
+      <!-- T-важіль з носиком над клавішею -->
+      <polygon points="87,41 98,41 145,46 145,51 98,47 87,47" class="t-arm" />
+      <!-- Носик натискання клавіші -->
+      <rect x="135" y="47" width="12" height="6" rx="2" fill="#34d399" />
+      <text x="141" y="41" class="label-sub" text-anchor="middle" font-size="8">Зазор 2.0 мм</text>
+
+      <!-- Розміри -->
+      <line x1="185" y1="70" x2="185" y2="52" class="dim-line" marker-start="url(#ar)" marker-end="url(#ar)" />
+      <text x="189" y="62" class="dim-text">18.0</text>
+    </svg>
+  </div>
+
+  <!-- КАРТКА 3: ДЕТАЛІ КРІПЛЕННЯ ТА ТАБЛИЦЯ CAD -->
+  <div class="card">
+    <h2>3. Специфікація розмірів для моделювання в CAD (Fusion 360 / Onshape)</h2>
+    <p class="desc">Усі координати наведені в міліметрах відносно центру клавіші (0, 0, 0).</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Елемент вузла</th>
+          <th>Розмір / Позиція (мм)</th>
+          <th>Висота Z (мм)</th>
+          <th>Інженерне призначення</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="tag">Базова пластина</td>
+          <td class="num">114 × 72 (з подовженням під ESP)</td>
+          <td class="num">0.0 .. 3.2</td>
+          <td>Замінює штатну декоративну рамку; сідає на стіну/супорт</td>
+        </tr>
+        <tr>
+          <td class="tag">Вікно під клавішу</td>
+          <td class="num">59.0 × 52.0 (центр 0,0)</td>
+          <td class="num">наскрізне</td>
+          <td>Зазор +1.0 мм на сторону навколо клавіші 57×50 мм</td>
+        </tr>
+        <tr>
+          <td class="tag">Монтажні пази підрозетника</td>
+          <td class="num">Крок 60.0 (Y = ±30.0 або X = ±30.0)</td>
+          <td class="num">паз Ø4.5 з поглибленням</td>
+          <td><b>БЕЗ КЛЕЮ</b>: жорстко притискається гвинтами підрозетника до стіни</td>
+        </tr>
+        <tr>
+          <td class="tag">Подіум серви</td>
+          <td class="num">46.0 × 44.0 (X = -72..-31.5)</td>
+          <td class="num">3.2 .. 13.5</td>
+          <td>Піднімає серву; вісь вала виходить точно на Z = 24.0 мм</td>
+        </tr>
+        <tr>
+          <td class="tag">Стійки під болти M3 серви</td>
+          <td class="num">Стовпчики Ø7 мм, крок 30 мм</td>
+          <td class="num">13.5 .. 34.5</td>
+          <td>Під нарізку різьби M3 або гайки M3 знизу</td>
+        </tr>
+        <tr>
+          <td class="tag">Притискна планка серви</td>
+          <td class="num">64.0 × 14.0 × 4.0</td>
+          <td class="num">окрема деталь</td>
+          <td>Притискає монтажні вушка серви двома болтами M3 (нуль люфту)</td>
+        </tr>
+        <tr>
+          <td class="tag">T-подібний важіль 25T</td>
+          <td class="num">Плечі Y = ±17.0 мм, виліт 28 мм</td>
+          <td class="num">вал Z = 24.0</td>
+          <td>Паз під металеву качалку 25T; тисне на верх і низ клавіші 57×50</td>
+        </tr>
+        <tr>
+          <td class="tag">Бокс для ESP32</td>
+          <td class="num">90.0 × 58.0 (внутрішній)</td>
+          <td class="num">3.2 .. 27.2</td>
+          <td>Вміщує плату ESP32, DC-DC перетворювач, реле та пучок дротів</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>
