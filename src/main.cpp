@@ -3,8 +3,9 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Preferences.h>
-#include <ArduinoOTA.h>
 #include <Update.h>
+#include <WiFiClientSecure.h>
+#include <HTTPUpdate.h>
 #include "icon_data.h"
 #include "secrets.h"  // WIFI_SSID, WIFI_PASS, AP_SSID, AP_PASS, OTA_PASS (не комітиться, див. secrets.example.h)
 
@@ -299,12 +300,14 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
     </div>
 
     <div class="section">
-      <div class="section-title">Система</div>
+      <div class="section-title">Система та Оновлення</div>
       <div class="row"><label>Wi-Fi:</label><span id="sysWifi">...</span></div>
       <div class="row"><label>IP:</label><span id="sysIp">...</span></div>
       <div class="row"><label>Сигнал:</label><span id="sysRssi">...</span></div>
       <div class="row"><label>Аптайм:</label><span id="sysUp">...</span></div>
-      <button class="cal-btn" onclick="rebootEsp()">Перезавантажити ESP32</button>
+      <button class="cal-btn" onclick="rebootEsp()" style="margin-bottom:8px">Перезавантажити ESP32</button>
+      <button class="cal-btn" style="background:#059669;border-color:#10b981;color:#fff;font-weight:700" onclick="otaGithub()">⚡ Оновити прошивку з GitHub (CI/CD)</button>
+      <div id="otaStatus" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px"></div>
     </div>
 
     <button class="save-btn" onclick="saveCfg()">Зберегти налаштування</button>
@@ -337,6 +340,20 @@ async function rebootEsp() {
   toggleSettings(false);
   try { await fetch('/api/reboot'); } catch(e) {}
   setTimeout(() => location.reload(), 15000);
+}
+
+async function otaGithub() {
+  if (!confirm('Завантажити останній реліз із GitHub CI/CD та перепрошити ESP32 по Wi-Fi?')) return;
+  const st = document.getElementById('otaStatus');
+  st.innerText = 'Завантаження з GitHub... Зачекай ~45 сек.';
+  try {
+    const res = await fetch('/api/ota/github');
+    const txt = await res.text();
+    st.innerText = txt;
+  } catch(e) {
+    st.innerText = 'Запит надіслано! ESP32 оновлюється...';
+  }
+  setTimeout(() => location.reload(), 45000);
 }
 
 function degToUs(d) {
@@ -459,6 +476,27 @@ void handleReboot() {
     ESP.restart();
 }
 
+void handleOtaGithub() {
+    server.send(200, "text/plain", "Початок хмарного оновлення з GitHub...");
+    delay(200);
+    servoStopPwm();
+    digitalWrite(LED_PIN, HIGH);
+
+    WiFiClientSecure client;
+    client.setInsecure();
+    httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    httpUpdate.rebootOnUpdate(true);
+
+    Serial.println("[Cloud OTA] Завантаження прошивки з GitHub Releases...");
+    t_httpUpdate_return ret = httpUpdate.update(client,
+        "https://github.com/DeltaEngineering-Students/smart-light-switch/releases/latest/download/firmware.bin");
+
+    if (ret == HTTP_UPDATE_FAILED) {
+        Serial.printf("[Cloud OTA] Помилка (%d): %s\n", httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+    }
+    digitalWrite(LED_PIN, LOW);
+}
+
 // Вотчдог Wi-Fi: автоперепідключення, а якщо довго немає зв'язку з роутером — повний рестарт
 unsigned long lastWifiCheck = 0;
 unsigned long wifiDownSince = 0;
@@ -545,19 +583,13 @@ void setup() {
 
     MDNS.begin("switch");
 
-    // Бездротова прошивка (ArduinoOTA / espota) — її використовує CI/CD
-    ArduinoOTA.setHostname("switch");
-    ArduinoOTA.setPassword(OTA_PASS);
-    ArduinoOTA.onStart([]() { servoStopPwm(); digitalWrite(LED_PIN, HIGH); });
-    ArduinoOTA.onEnd([]() { digitalWrite(LED_PIN, LOW); });
-    ArduinoOTA.begin();
-
     server.on("/", handleRoot);
     server.on("/api/move", handleMove);
     server.on("/api/act", handleAct);
     server.on("/api/cfg", handleCfg);
     server.on("/api/sys", handleSys);
     server.on("/api/reboot", handleReboot);
+    server.on("/api/ota/github", handleOtaGithub);
     server.on("/icon.png", handleIcon);
     server.on("/manifest.json", handleManifest);
     // Бездротова Web OTA прошивка через HTTP POST або через браузер (без залежності від порту espota)
@@ -616,7 +648,6 @@ void setup() {
 
 void loop() {
     server.handleClient();
-    ArduinoOTA.handle();
     wifiWatchdog();
 
     if (releaseAtMs > 0 && millis() > releaseAtMs) {

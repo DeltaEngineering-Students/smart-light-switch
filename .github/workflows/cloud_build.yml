@@ -1,0 +1,41 @@
+name: Cloud Build & Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cloud-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Inject secrets.h
+        run: |
+          echo "${{ secrets.SECRETS_H }}" > src/secrets.h
+
+      - name: Build firmware
+        run: pio run -e esp32dev
+
+      - name: Publish latest release asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create latest .pio/build/esp32dev/firmware.bin \
+            --title "Latest Firmware" \
+            --notes "Автоматичний реліз прошивки з коміту $GITHUB_SHA" \
+            --clobber
