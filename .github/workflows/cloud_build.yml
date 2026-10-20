@@ -34,7 +34,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh release upload latest .pio/build/esp32dev/firmware.bin --clobber || \
           gh release create latest .pio/build/esp32dev/firmware.bin \
             --title "Latest Firmware" \
-            --notes "Автоматичний реліз прошивки з коміту $GITHUB_SHA" \
-            --clobber
+            --notes "Автоматичний реліз прошивки з коміту $GITHUB_SHA"
