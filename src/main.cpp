@@ -19,7 +19,7 @@ constexpr int SERVO_CHANEL = 0;
 constexpr int SERVO_FREQ   = 50;
 constexpr int SERVO_RES    = 16;
 
-const char FIRMWARE_VERSION[] = "v1.2.0 (GitHub OTA)";
+const char FIRMWARE_VERSION[] = "v1.3.0 (Auto-Detach 30s)";
 
 // Максимально можливий апаратний діапазон ШІМ-імпульсів під шкалу 0°..360° (300..2700 мкс)
 int minPulseUs   = 300;   // 0°   (крайній мінімум декодера серви)
@@ -45,21 +45,37 @@ int angleToUs(int angle) {
     return map(angle, 0, 360, minPulseUs, maxPulseUs);
 }
 
+bool isServoAttached = false;
+
+void servoAttachPwm() {
+    if (isServoAttached) return;
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+    ledcAttach(SERVO_PIN, SERVO_FREQ, SERVO_RES);
+#else
+    ledcAttachPin(SERVO_PIN, SERVO_CHANEL);
+#endif
+    isServoAttached = true;
+}
+
+void servoStopPwm() {
+    if (!isServoAttached) return;
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+    ledcDetach(SERVO_PIN);
+#else
+    ledcDetachPin(SERVO_PIN);
+#endif
+    pinMode(SERVO_PIN, INPUT_PULLDOWN);
+    isServoAttached = false;
+}
+
 void writePulseUs(int pulseUs) {
+    servoAttachPwm();
     pulseUs = constrain(pulseUs, 200, 2800);
     uint32_t duty = (uint32_t)((pulseUs * 65536UL) / 20000UL);
 #if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
     ledcWrite(SERVO_PIN, duty);
 #else
     ledcWrite(SERVO_CHANEL, duty);
-#endif
-}
-
-void servoStopPwm() {
-#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-    ledcWrite(SERVO_PIN, 0);
-#else
-    ledcWrite(SERVO_CHANEL, 0);
 #endif
 }
 
@@ -88,7 +104,7 @@ void triggerSwitch(bool turnOn) {
     servoMoveTo(angleNeutral, stepDelayMs);
     delay(260);
 
-    releaseAtMs = millis() + 200;
+    releaseAtMs = millis() + 30000UL; // 30 секунд активного утримання нейтралі, потім вільний стан
     lightState = turnOn;
     digitalWrite(LED_PIN, LOW);
 }
@@ -307,6 +323,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
     <div class="section">
       <div class="section-title">Система та Оновлення</div>
       <div class="row"><label>Версія ПЗ:</label><span id="sysVer" style="color:#10b981;font-weight:700">%FW_VER%</span></div>
+      <div class="row"><label>Стан мотора:</label><span id="sysServo" style="color:#38bdf8;font-weight:700">...</span></div>
       <div class="row"><label>Wi-Fi:</label><span id="sysWifi">...</span></div>
       <div class="row"><label>IP:</label><span id="sysIp">...</span></div>
       <div class="row"><label>Сигнал:</label><span id="sysRssi">...</span></div>
@@ -333,6 +350,7 @@ async function loadSys() {
   try {
     const j = await (await fetch('/api/sys')).json();
     if (j.ver) document.getElementById('sysVer').innerText = j.ver;
+    if (j.servo) document.getElementById('sysServo').innerText = j.servo;
     document.getElementById('sysWifi').innerText = j.sta ? 'підключено' : 'НЕ підключено (лише AP)';
     document.getElementById('sysIp').innerText = j.sta ? j.ip : '192.168.4.1';
     document.getElementById('sysRssi').innerText = j.sta ? j.rssi + ' dBm' : '-';
@@ -440,7 +458,7 @@ void handleMove() {
     }
     int deg = constrain(server.arg("deg").toInt(), 0, 360);
     servoMoveTo(deg, 0);
-    releaseAtMs = millis() + 1200;
+    releaseAtMs = millis() + 30000UL;
     server.send(200, "text/plain", "OK");
 }
 
@@ -448,10 +466,10 @@ void handleAct() {
     String cmd = server.arg("cmd");
     if (cmd == "on") {
         triggerSwitch(true);
-        server.send(200, "text/plain", "Світло УВІМКНЕНО (" + String(angleOn) + "° → " + String(angleNeutral) + "°)");
+        server.send(200, "text/plain", "Світло УВІМКНЕНО • Розтиск через 30с");
     } else if (cmd == "off") {
         triggerSwitch(false);
-        server.send(200, "text/plain", "Світло ВИМКНЕНО (" + String(angleOff) + "° → " + String(angleNeutral) + "°)");
+        server.send(200, "text/plain", "Світло ВИМКНЕНО • Розтиск через 30с");
     } else {
         server.send(400, "text/plain", "Unknown cmd");
     }
@@ -463,7 +481,8 @@ void handleSys() {
                ",\"ip\":\"" + WiFi.localIP().toString() +
                "\",\"rssi\":" + String(sta ? WiFi.RSSI() : 0) +
                ",\"up\":" + String(millis() / 1000) +
-               ",\"ver\":\"" + String(FIRMWARE_VERSION) + "\"}";
+               ",\"ver\":\"" + String(FIRMWARE_VERSION) + "\"" +
+               ",\"servo\":\"" + String(isServoAttached ? "Активна (тримає)" : "Вільна (0 мА)") + "\"}";
     server.send(200, "application/json", j);
 }
 
@@ -546,11 +565,12 @@ void handleCfg() {
     prefs.putInt("maxu", maxPulseUs);
 
     servoMoveTo(angleNeutral, stepDelayMs);
-    releaseAtMs = millis() + 400;
+    releaseAtMs = millis() + 30000UL;
     server.send(200, "text/plain", "Збережено • Центр " + String(angleNeutral) + "°");
 }
 
 void setup() {
+    setCpuFrequencyMhz(80);
     Serial.begin(115200);
     pinMode(LED_PIN, OUTPUT);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -571,13 +591,14 @@ void setup() {
     ledcSetup(SERVO_CHANEL, SERVO_FREQ, SERVO_RES);
     ledcAttachPin(SERVO_PIN, SERVO_CHANEL);
 #endif
+    isServoAttached = true;
 
     writePulseUs(angleToUs(angleNeutral));
-    releaseAtMs = millis() + 600;
+    releaseAtMs = millis() + 30000UL;
 
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAP(AP_SSID, AP_PASS);
-    WiFi.setSleep(false);
+    WiFi.setSleep(true);
     WiFi.setAutoReconnect(true);
     WiFi.begin(WIFI_SSID, WIFI_PASS);
 
