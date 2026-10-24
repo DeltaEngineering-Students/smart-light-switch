@@ -19,6 +19,8 @@ constexpr int SERVO_CHANEL = 0;
 constexpr int SERVO_FREQ   = 50;
 constexpr int SERVO_RES    = 16;
 
+const char FIRMWARE_VERSION[] = "v1.2.0 (GitHub OTA)";
+
 // Максимально можливий апаратний діапазон ШІМ-імпульсів під шкалу 0°..360° (300..2700 мкс)
 int minPulseUs   = 300;   // 0°   (крайній мінімум декодера серви)
 int maxPulseUs   = 2700;  // 360° (крайній максимум декодера серви)
@@ -202,7 +204,10 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
   <div class="top-bar">
     <div class="brand">
       <div class="dot"></div>
-      <div class="title">SMART SWITCH 360°</div>
+      <div>
+        <div class="title">SMART SWITCH 360°</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600">%FW_VER%</div>
+      </div>
     </div>
     <button class="gear-btn" onclick="toggleSettings(true)" aria-label="Settings">
       <svg class="icon-svg" viewBox="0 0 24 24">
@@ -301,6 +306,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 
     <div class="section">
       <div class="section-title">Система та Оновлення</div>
+      <div class="row"><label>Версія ПЗ:</label><span id="sysVer" style="color:#10b981;font-weight:700">%FW_VER%</span></div>
       <div class="row"><label>Wi-Fi:</label><span id="sysWifi">...</span></div>
       <div class="row"><label>IP:</label><span id="sysIp">...</span></div>
       <div class="row"><label>Сигнал:</label><span id="sysRssi">...</span></div>
@@ -326,6 +332,7 @@ function toggleSettings(open) {
 async function loadSys() {
   try {
     const j = await (await fetch('/api/sys')).json();
+    if (j.ver) document.getElementById('sysVer').innerText = j.ver;
     document.getElementById('sysWifi').innerText = j.sta ? 'підключено' : 'НЕ підключено (лише AP)';
     document.getElementById('sysIp').innerText = j.sta ? j.ip : '192.168.4.1';
     document.getElementById('sysRssi').innerText = j.sta ? j.rssi + ' dBm' : '-';
@@ -422,6 +429,7 @@ void handleRoot() {
     page.replace("%SPD%", String(stepDelayMs));
     page.replace("%MIN_US%", String(minPulseUs));
     page.replace("%MAX_US%", String(maxPulseUs));
+    page.replace("%FW_VER%", FIRMWARE_VERSION);
     server.send(200, "text/html", page);
 }
 
@@ -454,7 +462,8 @@ void handleSys() {
     String j = "{\"sta\":" + String(sta ? "true" : "false") +
                ",\"ip\":\"" + WiFi.localIP().toString() +
                "\",\"rssi\":" + String(sta ? WiFi.RSSI() : 0) +
-               ",\"up\":" + String(millis() / 1000) + "}";
+               ",\"up\":" + String(millis() / 1000) +
+               ",\"ver\":\"" + String(FIRMWARE_VERSION) + "\"}";
     server.send(200, "application/json", j);
 }
 
